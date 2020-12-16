@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-# 本程序功能:读取由TSM插件命令/tsm scan扫描完后的AH所有端口信息,包含物品名称,最低价格,平均价格,当前拍卖量,扫描时间.等信息
-# 通过本程序,生成一坐EXCEL表格来方便进行价格走势分析.
+# 本程序功能:读取由TSM插件命令/tsm scan扫描完后的AH所有商品信息,包含物品名称,最低价格,平均价格,当前拍卖量,扫描时间.等
+# 通过本程序,生成一张EXCEL表格来方便进行价格走势分析.
 # from win32com.client import Dispatch
 from win32com.client import Dispatch
 import string
@@ -22,7 +22,7 @@ from openpyxl.chart import (
     Reference,
 )
 
-
+#解决有时候EXCEL打开,无法关闭,进行强行关闭的方法来自CSDN网站
 def just_open(filename):
     abs_filename= os.path.abspath(filename)
     print(abs_filename)
@@ -32,7 +32,7 @@ def just_open(filename):
     xlBook.Save()
     xlBook.Close()
 
-
+#将一个name.txt文件中的ID与读取到的商品名称一一对应并写入正确商品名称
 def id_to_name(filename):
     # id_name = os.path.abspath(filename)
     # print(id_name)
@@ -55,7 +55,7 @@ def id_to_name(filename):
             id_ret = id_f.readline()
     return ItemNames
 
-
+#产生正确的时间信息
 def timestamp_datetime(value):
     if type(value) != int:
         value = int(value)
@@ -68,13 +68,13 @@ def timestamp_datetime(value):
     dt = time.strftime(format, value)
     return dt
 
-
+#时间的转换
 def date_style_transfomation(date, format_string1="%m-%d %H:%M:%S", format_string2="%m-%d %H-%M-%S"):
     time_array = time.strptime(date, format_string1)
     str_date = time.strftime(format_string2, time_array)
     return str_date
 
-
+#将数据写入mysql的命令转换
 def to_db_value(file):  # 从程序 中拿 到数据
     sql_comm_list = []
     file = files
@@ -110,7 +110,7 @@ def to_db_value(file):  # 从程序 中拿 到数据
     content = tuple(sql_comm_list)  # 批量写sql语句支持元组
     return content
 
-
+#将数据插件mysql数据库
 def insert_to_db(file):  # 从程序 中拿 到数据
     conn = pymysql.connect("119.3.224.53", "root", "Test123abc", "wowclassic")
     cursor = conn.cursor()
@@ -215,7 +215,7 @@ def get_small_value_to_color(path_excel,sheetName):
     print('比较大小着色完毕!进行保存')
     wb.save(path_excel)
 
-
+#将分析到的数据 写入excel表中
 def write_to_excel(files,sheetName):
     file = files
     with open(file, encoding='utf8') as f:
