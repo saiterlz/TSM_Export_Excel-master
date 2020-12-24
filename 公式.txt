@@ -1,4 +1,4 @@
-=VLOOKUP(C$1,INDIRECT("'"&$A4&"'!A:H"),2,0)/10000
+=VLOOKUP(B$1,INDIRECT("'"&$A63&"'!A:H"),2,0)/10000
 			
 			
 			

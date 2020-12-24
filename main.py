@@ -3,9 +3,9 @@
 # 本程序功能:读取由TSM插件命令/tsm scan扫描完后的AH所有商品信息,包含物品名称,最低价格,平均价格,当前拍卖量,扫描时间.等
 # 通过本程序,生成一张EXCEL表格来方便进行价格走势分析.
 # from win32com.client import Dispatch
+# 12-21计划增加运行时,检查是否已经 打开了EXCEL文件.提前关闭
+# 准备制作界面
 from win32com.client import Dispatch
-import string
-import json
 from openpyxl import load_workbook, Workbook
 from openpyxl.utils import get_column_letter, column_index_from_string
 from openpyxl.styles import numbers  # 数据格式
@@ -21,6 +21,7 @@ from openpyxl.chart import (
     LineChart,
     Reference,
 )
+
 
 #解决有时候EXCEL打开,无法关闭,进行强行关闭的方法来自CSDN网站
 def just_open(filename):
@@ -133,7 +134,7 @@ def insert_to_db(file):  # 从程序 中拿 到数据
     return print('处理写入到MYSQL')
 
 
-# 给分析页添加新培加的sheet页的名字到A例第row+1行.
+# 给分析页添加新增加的sheet页的名字到A例第row+1行.
 def add_sheet_name(workbook, dates,SheetName):
     print(workbook, dates)
     ws = workbook.get_sheet_by_name(SheetName)  # 获取sheet分析这个对象
@@ -157,8 +158,10 @@ def add_sheet_name(workbook, dates,SheetName):
             ws.cell(row=ws_rows_curent, column=i).number_format = '0.0000'  # 设置数据格式
             ws.cell(row=ws_rows_curent, column=i).alignment = Alignment(horizontal='right',
                                                                         vertical='center')  # 设置居中对齐
+
         else:
             break
+    return print("给分析页添加新增加的sheet页的名字到A例第row+1行")
 
 # 开始按列找出最小值
 def get_small_value_to_color(path_excel,sheetName):
@@ -216,8 +219,8 @@ def get_small_value_to_color(path_excel,sheetName):
     wb.save(path_excel)
 
 #将分析到的数据 写入excel表中
-def write_to_excel(files,sheetName):
-    file = files
+def write_to_excel(files,sheetName,path_excel):
+    file = files    #lua文件的路径
     with open(file, encoding='utf8') as f:
         ret = f.readline()
         while ret:
@@ -234,10 +237,11 @@ def write_to_excel(files,sheetName):
                         idxStart = ret.find("lastScan")
                         subStr = ret[idxStart + 10:len(ret) - 3]
                         arrItems = subStr.split('\\n')
-                        if os.path.exists("%s.xlsx" % subName):
-                            wb = load_workbook("%s.xlsx" % subName)
+                        if os.path.exists("%s" % path_excel_name):  #抓出一个BUG,excel的文件名与服务器名称信息混在一起了
+                            wb = load_workbook("%s" % path_excel_name)
                         else:
                             wb = Workbook(data_only=True)
+                        # AddSheet(fmt.Sprintf("%s", time.N
                         # AddSheet(fmt.Sprintf("%s", time.Now().Format("01-02 15-04-05"))
                         new_sheet_name = time.strftime("%m-%d %H-%M-%S", time.localtime())
                         ws = wb.create_sheet(new_sheet_name)
@@ -268,8 +272,8 @@ def write_to_excel(files,sheetName):
                         print('no data1')
                     add_sheet_name(wb, new_sheet_name,sheetName)
                     wb.save("%s.xlsx" % subName)
-    return print('处理写入到EXCEL')
-
+    # return print('处理写入到EXCEL')
+    return new_sheet_name
 
 if __name__ == "__main__":
     # 当前文件路径
@@ -284,6 +288,7 @@ if __name__ == "__main__":
 
     Analysis_Sheet0 = conf.get('value', 'Analysis_Sheet0')
     Analysis_Sheet1 = conf.get('value', 'Analysis_Sheet1')
+
 
     ChoiceSheetName = input('请选择要写入数据的工作薄,(1=%s  0=%s) :' % (Analysis_Sheet0,Analysis_Sheet1))
     open_write_to_excel_button = input('是否将-->AH数据<--数据写入EXCEL,(1=开  0=关) :')
@@ -303,13 +308,14 @@ if __name__ == "__main__":
     sprt_word = conf.get('value', 'sprt_word')
     ItemNames = id_to_name(id_name)
     # print(ItemNames)
+    just_open(path_excel)
     try:
         if ChoiceSheetName == '0':
             Analysis_Sheet = Analysis_Sheet1
         elif ChoiceSheetName == '1':
             Analysis_Sheet = Analysis_Sheet0
         else:
-            print('不用写入数据库')
+            print('没有正确选择表')
     except Exception as err:
         print(err)
     try:
@@ -322,7 +328,7 @@ if __name__ == "__main__":
 
     try:
         if open_write_to_excel_button != "0":
-            write_to_excel(files,Analysis_Sheet)
+            write_to_excel(files,Analysis_Sheet,path_excel)
         else:
             print('不用写入EXCEL表')
     except Exception as err:
