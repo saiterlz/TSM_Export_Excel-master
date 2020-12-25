@@ -1,1 +1,6 @@
 # Created by .ignore support plugin (hsz.mobi)
+/box.py
+/boxcls.py
+/main_GUi.py
+/test_scrollbar.py
+/test_threaded111.py

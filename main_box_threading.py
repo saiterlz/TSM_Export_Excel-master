@@ -11,17 +11,14 @@
 from win32com.client import Dispatch
 from openpyxl import load_workbook, Workbook
 from openpyxl.utils import get_column_letter, column_index_from_string
-from openpyxl.styles import numbers  # 数据格式
 from openpyxl.styles import Alignment  # 对齐方式
 from openpyxl.styles import Font  # 字体
 from openpyxl.styles import PatternFill  # 导入填充模块
-import pymysql
 import os
 import configparser
 from tkinter import *
 from tkinter.filedialog import askopenfilename
 from tkinter.scrolledtext import ScrolledText
-import hashlib
 import time
 import threading
 from dateutil import parser  # 处理时间运算
@@ -29,7 +26,11 @@ from dateutil import parser  # 处理时间运算
 LOG_LINE_NUM = 0
 count1 = 0
 count2 = 0
+new_sheet_name = ''
 
+ChoiceSheetName = '0'
+open_write_to_excel_button='0'
+compare_button='0'
 
 class GUI(Tk):
     # 统计EXCEL写入的数量
@@ -39,11 +40,21 @@ class GUI(Tk):
     # 当前数据
     counter: int = 0
 
+    # sheet名称
+    # ChoiceSheetName = ''
+    # open_write_to_excel_button = ''
+    # compare_button = ''
+    # path_excel = ''
+
     def __init__(self, parent=None):
         super().__init__()
-        self.r_value = IntVar()
+        self.r_value = IntVar(value=0)
         self.s_value = IntVar()
         self.r_value.set(1)
+        self.checkVar3 = StringVar(value='0')
+        self.checkVar3.set('0')
+        self.checkVar4 = StringVar(value='0')
+        self.checkVar4.set('0')
         self.set_init_window()
 
     # 设置窗口
@@ -56,7 +67,7 @@ class GUI(Tk):
         # self.attributes("-alpha",0.9)                          #虚化，值越小虚化程度越高
         # 标签
         # line 1
-        self.lab = Label(self, text="File_Path")
+        self.lab = Label(self, text="Lua文件")
         self.lab.grid(row=0, column=0)
         self.ent = Entry(self, width=90)
         self.ent.grid(row=0, column=1, columnspan=10)
@@ -64,21 +75,23 @@ class GUI(Tk):
         self.button1.grid(row=0, column=11)
         self.button2 = Button(self, text='submit', state=DISABLED, command=self.submit)
         self.button2.grid(row=0, column=12)
+        self.ent.insert(0, '在魔兽的WTF/帐号名/SavedVariables目录里, 选择TradeSkillMaster文件')
         # line 2
         self.lab = Label(self, text="类型")
         self.lab.grid(row=1, column=0)
         self.str_trans_choice_1_button = Radiobutton(self, text='整体分析', variable=self.r_value, value=1,
-                                                     command=self.choice_1_value)
+                                                     command=self.choice_value)
         self.str_trans_choice_1_button.grid(row=1, column=1)
         self.str_trans_choice_2_button = Radiobutton(self, text='会长关注', variable=self.r_value, value=0,
-                                                     command=self.choice_2_value)
+                                                     command=self.choice_value)
         self.str_trans_choice_2_button.grid(row=1, column=2)
         # line 3
         self.lab = Label(self, text="功能")
         self.lab.grid(row=2, column=0)
-        self.str_trans_choice_3_button = Checkbutton(self, text='写入EXCEL', command=self.myEvent1, variable=0)
+        self.str_trans_choice_3_button = Checkbutton(self, text='写入EXCEL', command=self.myEvent1,
+                                                     variable=self.checkVar3)
         self.str_trans_choice_3_button.grid(row=2, column=1)
-        self.str_trans_choice_4_button = Checkbutton(self, text='进行标识', command=self.myEvent2, variable=1)
+        self.str_trans_choice_4_button = Checkbutton(self, text='进行标识', command=self.myEvent2, variable=self.checkVar4)
         self.str_trans_choice_4_button.grid(row=2, column=2)
         # line 4
         self.main_start_button = Button(self, text="处理数据", bg="lightblue", width=10, state=DISABLED,
@@ -112,10 +125,36 @@ class GUI(Tk):
 
     # 功能函数
     def start_main(self):
+        global open_write_to_excel_button
+        global compare_button
         self.write_log_to_Text('* * * * * 程序开始执行 * * * * *')
         self.main_start_button['state'] = 'disable'
         files = self.file_path
         self.msg.set('运行状态: 开始执行...')
+        print('self.r_value.get()',self.r_value.get()) #默认的值 为数字 1
+        if self.r_value.get() == 1:
+            ChoiceSheetName = '1'
+            self.write_log_to_Text('整体分析被选中')
+            print(self.checkVar3.get(), self.checkVar4.get())
+            print(type(self.checkVar3.get()), type(self.checkVar4.get()))
+            if self.checkVar4.get() == '0' and self.checkVar3.get() == '0':
+                open_write_to_excel_button = '0'
+                compare_button = '0'
+                print('open_write_to_excel_button', open_write_to_excel_button)
+                print('compare_button', compare_button)
+                self.write_log_to_Text('功能模块未选内容,请先选择')
+                return
+        elif self.r_value.get() == 0:
+            ChoiceSheetName = '0'
+            self.write_log_to_Text('会长关注被选中')
+            print(self.checkVar3.get(), self.checkVar4.get())
+            print(type(self.checkVar3.get()), type(self.checkVar4.get()))
+            if self.checkVar4.get() == '0':
+                compare_button = '0'
+                print('open_write_to_excel_button', open_write_to_excel_button)
+                print('compare_button', compare_button)
+                self.write_log_to_Text('进行标识未选择')
+
         thread_main = threading.Thread(target=main, args=(
             ChoiceSheetName, open_write_to_excel_button, compare_button, files, path_excel))
         thread_main.start()  # 此处线程不推荐使用 join方法,使用后,GUI界面会卡死
@@ -136,17 +175,23 @@ class GUI(Tk):
         self.log_data_Text.see(END)
         self.log_data_Text.update()
 
-    def choice_1_value(self):
+    def choice_value(self):
         global ChoiceSheetName
         print(self.r_value.get())
-        ChoiceSheetName = str(self.r_value.get())
-        self.write_log_to_Text('整体分析被选中')
+        if self.r_value.get() == 1:
+            ChoiceSheetName = '1'
+            self.write_log_to_Text('整体分析被选中,会长关注被取消')
+        elif self.r_value.get() == 0:
+            ChoiceSheetName = '0'
+            self.write_log_to_Text('会长关注被选中,整体分析被取消')
+        else:
+            return
 
-    def choice_2_value(self):
-        global ChoiceSheetName
-        print(self.r_value.get())
-        ChoiceSheetName = str(self.r_value.get())
-        self.write_log_to_Text('会长关注被选中')
+    # def choice_2_value(self):
+    #     global ChoiceSheetName
+    #     print(self.r_value.get())
+    #     ChoiceSheetName = str(self.r_value.get())
+    #     self.write_log_to_Text('会长关注被选中')
 
     def get_file_path(self):  # 获取文件路径
         self.ent.delete(0, END)  # 先清空文件名框内的内容
@@ -164,9 +209,10 @@ class GUI(Tk):
         # src = self.init_data_Text.get(1.0, END).strip().replace("\n", "").encode()
         self.file_path = self.ent.get().strip().replace("\n", "").encode()
         self.button2['state'] = DISABLED
+        ChoiceSheetName = None
         if self.file_path:
             print(self.file_path)  # 用组件Entry的get获取输入框内的字符串，其在组件被销毁前就被取到
-            self.write_log_to_Text('文件已选择:%s' % self.file_path)
+            self.write_log_to_Text('TSM.lua文件已选择,路径为:%s' % str(self.file_path, encoding='utf-8'))
 
             # 拿 到 选择文件的时间信息
             self.luatimemsg.set('读取lua文件修改时间:' + str(get_FileModiTime(self.file_path)))
@@ -330,6 +376,7 @@ def insert_to_db(file):  # 从程序 中拿 到数据
 
 # 给分析页新增内容,以新增sheet页的名称做为分析 页最后一行的A倒值.A例第row+1行.
 def add_sheet_name(path_excel, new_sheet_name, Analysis_Sheet):
+    time_start = time.time()
     wb = load_workbook(path_excel)
     ws = wb.get_sheet_by_name(Analysis_Sheet)
     print(ws.title)  # 验证是否正确访问这个sheet(分析）
@@ -357,9 +404,14 @@ def add_sheet_name(path_excel, new_sheet_name, Analysis_Sheet):
             break
     app.write_log_to_Text('在EXCEL中新增的sheet并完成')
     wb.save(path_excel)
+    time_end = time.time()
+    delta = time_end - time_start
+    print("新增内容页此处子程序运行的时间是：{}秒".format(delta))
+    app.write_log_to_Text("新增内容页子程序运行的时间是：{}秒".format(delta))
 
 # 开始按列找出最小值
 def get_small_value_to_color(path_excel, sheetName):
+    time_start = time.time()
     wb = load_workbook(path_excel, data_only=True)
     ws = wb.get_sheet_by_name(sheetName)
     # 设置字体样式，设置字体为 微软雅黑，单下划线，颜色为蓝色,字体加粗
@@ -414,13 +466,16 @@ def get_small_value_to_color(path_excel, sheetName):
     print('比较大小着色完毕!进行保存')
     app.write_log_to_Text('比较大小着色完毕!进行保存')
     wb.save(path_excel)
+    time_end = time.time()
+    delta = time_end - time_start
+    print("此处子程序运行的时间是：{}秒".format(delta))
+    app.write_log_to_Text("此处子程序运行的时间是：{}秒".format(delta))
 
-
-new_sheet_name = ''
 
 
 # 将分析到的数据 写入excel表中
 def write_to_excel(files, sheetName, path_excel):
+    time_start = time.time()
     global new_sheet_name
     app.write_log_to_Text('开始执行分析数据写入excel表中')
     file = files
@@ -464,7 +519,7 @@ def write_to_excel(files, sheetName, path_excel):
 
                         if arrItems != 0:
                             print('write_to_excel : arrItems have data')  # 找到需求的数据段
-                            time_start = time.time()
+
                             for tmp in arrItems:
                                 list_tmp = list(tmp.split(','))
                                 ItemName = list_tmp[0].split(":")
@@ -472,17 +527,17 @@ def write_to_excel(files, sheetName, path_excel):
                                 list_tmp[5] = timestamp_datetime(list_tmp[5])
                                 ws.append(list_tmp)  # 写入数据到EXCEL
                                 app.all_info += 1
-                            time_end = time.time()
+
                         else:
                             print('no data ,error split data !')  # 没有找到需要数据段
                     else:
                         print('no data1')
                     # 两者相减
-                    delta = time_end - time_start
-                    print("此处子程序运行的时间是：{}秒".format(delta))
-                    app.write_log_to_Text("此处子程序运行的时间是：{}秒".format(delta))
                     wb.save(path_excel_name)
-
+    time_end = time.time()
+    delta = time_end - time_start
+    print("此处子程序运行的时间是：{}秒".format(delta))
+    app.write_log_to_Text("此处子程序运行的时间是：{}秒".format(delta))
     return app.write_log_to_Text('将lua中的数据,处理并写入到 EXCEL')
 
 
@@ -525,9 +580,9 @@ def main(ChoiceSheetName, open_write_to_excel_button, compare_button, files, pat
         if open_write_to_excel_button != "0":
             # write_to_excel(files, Analysis_Sheet,path_excel)
             if (parser.parse(read_lua_time) - parser.parse(get_FileModiTime(files))).seconds < 600:
-                print('检查文件后,发现记录时间不符合计算条件,写入模块终止,请重新运行!')
+                print('检查文件后,发现记录时间不符合计算条件,写入模块终止,请重新生成 tsm.lua文件!')
                 app.write_log_to_Text((parser.parse(read_lua_time) - parser.parse(get_FileModiTime(files))).seconds)
-                app.write_log_to_Text('检查文件后,发现记录时间不符合计算条件,写入模块终止,请重新运行!')
+                app.write_log_to_Text('检查文件后,发现记录时间不符合计算条件,写入模块终止,,请重新生成 tsm.lua文件!')
                 app.main_start_button['state'] = NORMAL
                 return
             wirte_to_excel_thread = threading.Thread(target=write_to_excel, args=(files, Analysis_Sheet, path_excel))
