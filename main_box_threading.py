@@ -7,6 +7,7 @@
 # 准备制作界面
 # 12-22日增加多线程
 # 12-23日增加lun文件生成日间对比.将已读取过并写入excel的日期,写入connfig.ini当中 ,以备下次运行时进行比较.来提升 程序 的可用性.如果 config.ini中的时间与当前读取lua文件的时间一致或接受 ,当判断不可用.
+# 2020-02-10日发现一处BUG,如果AH分析出来的数据里,没有itemid程式就会出错,不能正常写入EXCEL,更新后将无对应名称的物品ID报告到 界面中.
 
 from win32com.client import Dispatch
 from openpyxl import load_workbook, Workbook
@@ -29,8 +30,9 @@ count2 = 0
 new_sheet_name = ''
 
 ChoiceSheetName = '0'
-open_write_to_excel_button='0'
-compare_button='0'
+open_write_to_excel_button = '0'
+compare_button = '0'
+
 
 class GUI(Tk):
     # 统计EXCEL写入的数量
@@ -59,7 +61,7 @@ class GUI(Tk):
 
     # 设置窗口
     def set_init_window(self):
-        self.title("TSM数据处理工具_v1.2")  # 窗口名
+        self.title("TSM数据处理工具-TBC_v1.3")  # 窗口名
         # self.geometry('320x160+10+10')                         #290 160为窗口大小，+10 +10 定义窗口弹出时的默认展示位置
         self.geometry('790x681+10+10')
         self.resizable(False, False)  ## 规定窗口不可缩放
@@ -75,7 +77,7 @@ class GUI(Tk):
         self.button1.grid(row=0, column=11)
         self.button2 = Button(self, text='submit', state=DISABLED, command=self.submit)
         self.button2.grid(row=0, column=12)
-        self.ent.insert(0, '在魔兽的WTF/帐号名/SavedVariables目录里, 选择TradeSkillMaster文件')
+        self.ent.insert(0, '在魔兽目录的WTF/帐号名/SavedVariables目录里, 选择TradeSkillMaster文件')
         # line 2
         self.lab = Label(self, text="类型")
         self.lab.grid(row=1, column=0)
@@ -131,7 +133,7 @@ class GUI(Tk):
         self.main_start_button['state'] = 'disable'
         files = self.file_path
         self.msg.set('运行状态: 开始执行...')
-        print('self.r_value.get()',self.r_value.get()) #默认的值 为数字 1
+        print('self.r_value.get()', self.r_value.get())  # 默认的值 为数字 1
         if self.r_value.get() == 1:
             ChoiceSheetName = '1'
             self.write_log_to_Text('整体分析被选中')
@@ -293,40 +295,35 @@ def just_open(filename):
 
 # 将一个name.txt文件中的ID与读取到的商品名称一一对应并写入正确商品名称
 def id_to_name(filename):
-    # id_name = os.path.abspath(filename)
-    # print(id_name)
-    ItemNames = {}
-    with open(id_name, 'r', encoding='utf8') as id_f:
-        id_ret = id_f.readlines()
-        # print(id_ret)
-        for i in id_ret:
-            arrStr = i.splitlines()
-            # print(arrStr)
-            if len(arrStr) > 0:
-                for v in arrStr:
-                    # print(v)
-                    strI = v.split(":")
-                    # print(type(strI))
-                    arrI = strI
-                    # print(arrI)
-                    if len(arrI) == 2:
-                        ItemNames[arrI[0]] = arrI[1]
-            id_ret = id_f.readline()
-    return ItemNames
+    star_time = time.clock()
+    # 新改进转为字典
+    with open(id_name, 'r', encoding='utf-8') as f:
+        dic = []
+        for line in f.readlines():
+            line = line.strip('\n')  # 去掉换行符\n
+            b = line.split(':')  # 将每一行以空格为分隔符转换成列表
+            dic.append(b)
+    # print(dic[19293])
+    dic = dict(dic)
+    end_time = time.clock()
+    print('转DICT使用时间为:', end_time - star_time)
+    return dic
 
 
 # 将数据写入mysql的命令转换
 def to_db_value(file):  # 从程序 中拿 到数据
     sql_comm_list = []
-    file = files
+    # file = files
     with open(file, encoding='utf8') as f:
         ret = f.readline()
         while ret:
             ret = f.readline()
             if sprt_word in ret:
-                idxName = ret.find("internalData@csvAuctionDBScan")
+                idxName = ret.find("csvAuctionDBScan")
                 # print('idxName=', idxName)
                 subName = ret[5:idxName - 1]
+
+                print(subName)
                 if subName:
                     if ret.find("lastScan"):
                         # "f@lliance - 比格沃斯@internalData@csvAuctionDBScan" 实例
@@ -367,6 +364,7 @@ def insert_to_db(file):  # 从程序 中拿 到数据
     except pymysql.Error as e:
         # 发生错误时回滚
         print('执行sql出错，进行回滚', e)
+        app.write_log_to_Text('执行sql出错，进行回滚,', e)
         conn.rollback()
     conn.close()
     end = time.clock()
@@ -374,7 +372,7 @@ def insert_to_db(file):  # 从程序 中拿 到数据
     return print('处理写入到MYSQL')
 
 
-# 给分析页新增内容,以新增sheet页的名称做为分析 页最后一行的A倒值.A例第row+1行.
+# 将新添加的数据表,给分析页新增一行内容,以新增sheet页的名称做为分析页最后一行的A的值.A例第row+1行.
 def add_sheet_name(path_excel, new_sheet_name, Analysis_Sheet):
     time_start = time.time()
     wb = load_workbook(path_excel)
@@ -387,7 +385,7 @@ def add_sheet_name(path_excel, new_sheet_name, Analysis_Sheet):
     ws_rows_curent = ws_rows_len + 1  # 定位要写入的数据为当前得到的行数加1
     for i in range(2, ws_cols_len + 1):  # 开始 遍历写入单元格公式内容 ，遍历范围了列数加1，因为for循环的机制才加1。写入的数据是从第 2列开始
         this_col_name = ws.cell(row=1, column=i).value  # 验证当前表中第一行的字段值 是否存在
-        if ws.cell(row=1, column=i).value != None:  # 通过ws.cell().value函数得到该 值 ，用来判断第 一行对应字段是否为None
+        if ws.cell(row=1, column=i).value != None:  # 通过ws.cell().value函数得到该值，用来判断第 一行对应字段是否为None
             # 写入公式 =VLOOKUP(B$1,INDIRECT("'"&$A4&"'!A:H"),2,0)/10000
             #       "=VLOOKUP((B$1,INDIRECT("'" + dates + "'!A:H"),2,0)/10000 "
             col_letter_str = get_column_letter(i)  # 使用get_column_letter()函数得到列对应的字母，否则为数字，无法代入公式
@@ -400,16 +398,19 @@ def add_sheet_name(path_excel, new_sheet_name, Analysis_Sheet):
             ws.cell(row=ws_rows_curent, column=i).number_format = '0.0000'  # 设置数据格式
             ws.cell(row=ws_rows_curent, column=i).alignment = Alignment(horizontal='right',
                                                                         vertical='center')  # 设置居中对齐
+            # ws.add_sparkline(ws.cell(row=3, column=i), {'range': 'Sheet1!a1:c1'})
         else:
             break
     app.write_log_to_Text('在EXCEL中新增的sheet并完成')
     wb.save(path_excel)
     time_end = time.time()
     delta = time_end - time_start
-    print("新增内容页此处子程序运行的时间是：{}秒".format(delta))
-    app.write_log_to_Text("新增内容页子程序运行的时间是：{}秒".format(delta))
+    print("分析sheet新增内容子程序运行的时间是：{}秒".format(delta))
+    app.write_log_to_Text("分析sheet新增内容子程序运行的时间是：{}秒".format(delta))
 
-# 开始按列找出最小值
+
+# 对EXCEL表中,分析工作薄开始按列找出最小值并标注
+
 def get_small_value_to_color(path_excel, sheetName):
     time_start = time.time()
     wb = load_workbook(path_excel, data_only=True)
@@ -472,8 +473,7 @@ def get_small_value_to_color(path_excel, sheetName):
     app.write_log_to_Text("此处子程序运行的时间是：{}秒".format(delta))
 
 
-
-# 将分析到的数据 写入excel表中
+# 将整理的数据写入到EXCEL的按日期新建的工作薄中
 def write_to_excel(files, sheetName, path_excel):
     time_start = time.time()
     global new_sheet_name
@@ -485,8 +485,8 @@ def write_to_excel(files, sheetName, path_excel):
         while ret:
             ret = f.readline()
             if sprt_word in ret:
-                idxName = ret.find("internalData@csvAuctionDBScan")
-                # print('idxName=', idxName)
+                idxName = ret.find("csvAuctionDBScan")
+                print('idxName=', idxName)
                 subName = ret[5:idxName - 1]
                 if subName:
                     print('服务器文件名称为:', subName)
@@ -501,7 +501,7 @@ def write_to_excel(files, sheetName, path_excel):
                         else:
                             wb = Workbook(data_only=True)
                         # AddSheet(fmt.Sprintf("%s", time.Now().Format("01-02 15-04-05"))
-                        new_sheet_name = time.strftime("%m-%d %H-%M-%S", time.localtime())
+                        new_sheet_name = time.strftime("%y-%m-%d %H-%M-%S", time.localtime())
                         ws = wb.create_sheet(new_sheet_name)
                         ws.cell(1, 1).value = u"物品名称"
                         ws.column_dimensions["B"].width = 20
@@ -521,23 +521,39 @@ def write_to_excel(files, sheetName, path_excel):
                             print('write_to_excel : arrItems have data')  # 找到需求的数据段
 
                             for tmp in arrItems:
+                                print("arrItrems:",tmp)
                                 list_tmp = list(tmp.split(','))
                                 ItemName = list_tmp[0].split(":")
-                                list_tmp[0] = ItemNames[ItemName[1]]  # 处理名称
+                                # list_tmp[0] = ItemNames[ItemName[1]]  # 处理名称
+                                # 处理名称
+                                try:
+                                    list_tmp[0] = ItemNames[ItemName[1]]
+                                except KeyError:
+                                    print("%s 's id is unknown." % ItemName[1])
+                                    app.write_log_to_Text("%s 's id is unknown." % ItemName[1])
+                                # 处理字符转为数字 将list_tmp[1],list_tmp[2],list_tmp[3],list_tmp[4]
+                                list_tmp[1]=int(list_tmp[1])
+                                list_tmp[2]=int(list_tmp[2])
+                                list_tmp[3]=int(list_tmp[3])
+                                list_tmp[4]=int(list_tmp[4])
                                 list_tmp[5] = timestamp_datetime(list_tmp[5])
+                                print(list_tmp)
+
                                 ws.append(list_tmp)  # 写入数据到EXCEL
                                 app.all_info += 1
 
                         else:
                             print('no data ,error split data !')  # 没有找到需要数据段
+                            app.write_log_to_Text('没有从文件中找到数据,请重新选择数据文件或者游戏中没有reload')
                     else:
                         print('no data1')
+                        app.write_log_to_Text('没有从文件中找到数据,请重新选择数据文件或者游戏中没有reload')
                     # 两者相减
                     wb.save(path_excel_name)
     time_end = time.time()
     delta = time_end - time_start
-    print("此处子程序运行的时间是：{}秒".format(delta))
-    app.write_log_to_Text("此处子程序运行的时间是：{}秒".format(delta))
+    print("写入excel表子程序运行的时间是：{}秒".format(delta))
+    app.write_log_to_Text("写入excel表子程序运行的时间是：{}秒".format(delta))
     return app.write_log_to_Text('将lua中的数据,处理并写入到 EXCEL')
 
 
@@ -568,6 +584,7 @@ def main(ChoiceSheetName, open_write_to_excel_button, compare_button, files, pat
             # print('不用写入数据库')
     except Exception as err:
         print(err)
+        app.write_log_to_Text(err)
     try:
         if open_to_sql_button != '0':
             insert_to_db(files)
@@ -576,6 +593,7 @@ def main(ChoiceSheetName, open_write_to_excel_button, compare_button, files, pat
             app.write_log_to_Text('不用写入数据库')
     except Exception as err:
         print(err)
+        app.write_log_to_Text(err)
     try:
         if open_write_to_excel_button != "0":
             # write_to_excel(files, Analysis_Sheet,path_excel)
@@ -600,6 +618,7 @@ def main(ChoiceSheetName, open_write_to_excel_button, compare_button, files, pat
             app.write_log_to_Text('不用写入EXCEL表')
     except Exception as err:
         print(err)
+        app.write_log_to_Text(err)
     try:
         if compare_button != "0":
             just_open(path_excel)
@@ -610,8 +629,8 @@ def main(ChoiceSheetName, open_write_to_excel_button, compare_button, files, pat
             get_small_value_to_color_thread.join()
 
         else:
-            # print('不用写入EXCEL表')
-            app.write_log_to_Text('不用写入EXCEL表')
+            # print(''不用进行比较操作')
+            app.write_log_to_Text('不用进行比较操作')
     except Exception as err:
         # print(err)
         app.write_log_to_Text(err)
@@ -626,16 +645,20 @@ if __name__ == "__main__":
     proDir = os.path.split(os.path.realpath(__file__))[0]
     # 在当前文件路径下查找.ini文件
     configPath = os.path.join(proDir, "config.ini")
-    print(configPath)
+    print('配置文件路径为:%s' % configPath)
     conf = configparser.ConfigParser()
     # 读取.ini文件
     conf.read(configPath, encoding="utf-8-sig")
     read_lua_time = conf.get('value', 'luamtime')
     print(read_lua_time)
 
-    path_excel = "D:\\mystudy\\TSM_Export_Excel-master\\Alliance - 比格沃斯2.xlsx"
-    sprt_word = "csvAuctionDBScan"
-    id_name = "D:\\mystudy\\TSM_Export_Excel-master\\nameB.txt"
+    path_excel = conf.get('path','path_excel')
+    print(path_excel)
+    # path_excel = "Alliance - 比格沃斯TBC.xlsx"
+    sprt_word = "f@Alliance - 法尔班克斯@internalData@csvAuctionDBScan"
+    id_name = conf.get('path','id_name')
+    print(id_name)
+    # id_name = "nameTBC2.txt"
     ItemNames = id_to_name(id_name)
     open_to_sql_button = '0'
     app = GUI()

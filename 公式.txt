@@ -27,3 +27,8 @@ pipreqs ./ --encoding=utf-8 --force
 =IFERROR(VLOOKUP($H1,'[AH行情汇总与制造成本模板（LM市场价格）.xlsx]03-17-LM'!$A:$B,2,0)/10000,"")
 
 =IFERROR(VLOOKUP($H1,INDIRECT("'"&$B5&"'!A:H"),2,0)/10000,"#N/A")
+
+
+
+PYINSTALLER --clean -Fw -i icon.ico TSM_Tools.py
+PYINSTALLER --clean -Fw -i icon.ico main_box_threading.py

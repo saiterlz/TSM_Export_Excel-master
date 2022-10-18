@@ -612,9 +612,9 @@ if __name__ == "__main__":
     read_lua_time = conf.get('value', 'luamtime')
     print(read_lua_time)
 
-    path_excel = "D:\\mystudy\\TSM_Export_Excel-master\\Alliance - 比格沃斯2.xlsx"
+    path_excel = "Alliance - 比格沃斯2.xlsx"
     sprt_word = "csvAuctionDBScan"
-    id_name = "D:\\mystudy\\TSM_Export_Excel-master\\nameB.txt"
+    id_name = "nameB.txt"
     ItemNames = id_to_name(id_name)
     open_to_sql_button = '0'
     app = GUI()
